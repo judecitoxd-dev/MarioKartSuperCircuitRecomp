@@ -1,0 +1,46 @@
+# Mario Kart: Super Circuit (USA, AMKE, revision 0).
+
+[game]
+name = "Mario Kart: Super Circuit"
+short_name = "mario_kart_super_circuit"
+
+[program]
+name = "Mario Kart: Super Circuit (USA)"
+id = "AMKE"
+load_address = 0x08000000
+size = 0x00400000
+entry_pc = 0x08000000
+# Keep the fallback scaffold deterministic and conservative: only reviewed
+# control-flow evidence seeds code, and generated guest code is sharded for
+# practical iterative builds.
+speculative_literal_harvest = false
+codegen_shards = 16
+
+[identity]
+sha1 = "9d327c030c3e2d9007990518594f70c3340ac56f"
+md5 = "784a036ff1aae709e90167186639b75e"
+
+[bios]
+path = "../gbarecomp-wt-mmz-static/bios/gba_bios.bin"
+sha1 = "300c20df6731a33952ded8c436f7f186d25d3492"
+hle = false
+
+[rom]
+path = "roms/mario_kart_super_circuit_usa.gba"
+sha1 = "9d327c030c3e2d9007990518594f70c3340ac56f"
+
+[save]
+type = "flash512"
+size = 65536
+path = "saves/mario_kart_super_circuit_usa.sav"
+
+[runtime]
+debug_port = 19872
+window_title = "MarioKartSuperCircuitRecomp"
+
+[video]
+screen = "frontlit"
+widescreen = 0
+
+[audio]
+shadow = false
