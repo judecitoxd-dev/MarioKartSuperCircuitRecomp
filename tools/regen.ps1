@@ -1,6 +1,6 @@
 param(
     [string]$Rom = (Join-Path $PSScriptRoot '..\roms\mario_kart_super_circuit_usa.gba'),
-    [string]$GbarecompRoot = (Join-Path $PSScriptRoot '..\..\gbarecomp-wt-mmz-static'),
+    [string]$GbarecompRoot = (Join-Path $PSScriptRoot '..\..\gbarecomp'),
     [int]$MaxFunctions = 65536
 )
 

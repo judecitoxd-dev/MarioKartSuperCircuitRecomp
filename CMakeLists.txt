@@ -5,13 +5,18 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(GBARECOMP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../gbarecomp-wt-mmz-static"
-    CACHE PATH "Path to the isolated gbarecomp worktree")
+set(GBARECOMP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../gbarecomp"
+    CACHE PATH "Path to the sibling gbarecomp checkout")
 if(NOT EXISTS "${GBARECOMP_ROOT}/CMakeLists.txt")
     message(FATAL_ERROR "GBARECOMP_ROOT is not a gbarecomp checkout: ${GBARECOMP_ROOT}")
 endif()
 
 add_subdirectory("${GBARECOMP_ROOT}" gbarecomp_build EXCLUDE_FROM_ALL)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/generated/recompiled.cpp")
+    message(FATAL_ERROR
+        "Stale monolithic generated/recompiled.cpp found. "
+        "Run tools/regen.ps1 with the current gbarecomp before building.")
+endif()
 file(GLOB GAME_GENERATED_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/generated/*.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/generated/*.cpp")
@@ -24,7 +29,7 @@ add_executable(MarioKartSuperCircuitRecomp
 # dispatch table and symbol map remain ordinary small generated units.
 set(GAME_RECOMPILED_SOURCES ${GAME_GENERATED_SOURCES})
 list(FILTER GAME_RECOMPILED_SOURCES INCLUDE REGEX
-    "/recompiled(_[0-9]+)?\\.cpp$")
+    "/recompiled_[0-9]+\\.cpp$")
 if(GAME_RECOMPILED_SOURCES)
     set_source_files_properties(${GAME_RECOMPILED_SOURCES} PROPERTIES
         COMPILE_OPTIONS "-O1;-g0")
