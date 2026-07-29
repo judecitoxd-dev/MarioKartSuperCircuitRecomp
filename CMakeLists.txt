@@ -5,10 +5,13 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(GBARECOMP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../gbarecomp"
-    CACHE PATH "Path to the sibling gbarecomp checkout")
+set(GBARECOMP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/gbarecomp"
+    CACHE PATH "Path to this game's gbarecomp worktree")
 if(NOT EXISTS "${GBARECOMP_ROOT}/CMakeLists.txt")
-    message(FATAL_ERROR "GBARECOMP_ROOT is not a gbarecomp checkout: ${GBARECOMP_ROOT}")
+    message(FATAL_ERROR
+        "GBARECOMP_ROOT is not a gbarecomp checkout:\n"
+        "  ${GBARECOMP_ROOT}\n"
+        "Configure with -DGBARECOMP_ROOT=<path> if the local worktree link is absent.")
 endif()
 
 add_subdirectory("${GBARECOMP_ROOT}" gbarecomp_build EXCLUDE_FROM_ALL)

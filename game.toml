@@ -21,9 +21,9 @@ sha1 = "9d327c030c3e2d9007990518594f70c3340ac56f"
 md5 = "784a036ff1aae709e90167186639b75e"
 
 [bios]
-path = "../gbarecomp-wt-mmz-static/bios/gba_bios.bin"
+path = "gbarecomp/bios/gba_bios.bin"
 sha1 = "300c20df6731a33952ded8c436f7f186d25d3492"
-hle = false
+hle = true
 
 [rom]
 path = "roms/mario_kart_super_circuit_usa.gba"

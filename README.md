@@ -9,19 +9,20 @@
 > accelerate this game's polish. More on the why at:
 > [Recomp + AI: 5 Months Later »](https://1379.tech/recomp-ai-5-months-later/)_
 
-Static recompilation scaffold for Mario Kart: Super Circuit (USA) using the
-isolated `../gbarecomp-wt-mmz-static` engine worktree. It is prepared as the
-fallback target; Mega Man Zero remains the active bring-up target.
+Static recompilation scaffold for Mario Kart: Super Circuit (USA) using its
+dedicated `gbarecomp-mario-kart-super-circuit` engine worktree, linked locally
+as `gbarecomp/`.
 
 The faithful baseline executes the real recompiled BIOS and cartridge code.
 Generated code and the user-provided ROM stay local and ignored.
 
 ```powershell
 pwsh tools/regen.ps1
-cmake -S . -B build -G Ninja `
+C:\msys64\mingw64\bin\cmake.exe -S . -B build -G Ninja `
+  -DCMAKE_BUILD_TYPE=Release `
   -DCMAKE_C_COMPILER=C:/msys64/mingw64/bin/gcc.exe `
   -DCMAKE_CXX_COMPILER=C:/msys64/mingw64/bin/g++.exe
-cmake --build build --target MarioKartSuperCircuitRecomp
+C:\msys64\mingw64\bin\cmake.exe --build build --target MarioKartSuperCircuitRecomp --parallel
 ```
 
 Runtime closure uses the same standard as Mega Man Zero: no interpreted or
