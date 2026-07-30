@@ -16,6 +16,8 @@ namespace {
 
 int (*g_previous_tilemap_provider)(int, int, int, std::uint16_t*) = nullptr;
 int (*g_previous_bg_x_provider)(int, int, int, int*) = nullptr;
+int (*g_previous_obj_attr_x_provider)(int, std::uint16_t, std::uint16_t,
+                                      std::uint16_t, int*) = nullptr;
 
 struct HudRect {
     int x0;
@@ -29,7 +31,7 @@ struct HudRect {
 // countdown, and pause dialog so they remain centered.
 constexpr HudRect kLeftHud[] = {
     {0, 0, 100, 36},    // coins + lap
-    {0, 32, 24, 128},   // running order
+    {0, 32, 32, 128},   // running order, including its right-hand trim
     {0, 120, 64, 160},  // current position
 };
 constexpr HudRect kRightHud[] = {
@@ -184,6 +186,34 @@ int race_hud_bg_x_provider(int bg, int output_x, int screen_y,
         : 0;
 }
 
+int race_hud_obj_x_provider(int oam_index, std::uint16_t attr0,
+                            std::uint16_t attr1, std::uint16_t attr2,
+                            int* out_x) {
+    gba::GbaBus* bus = gbarecomp::active_bus();
+    const int raw_x = static_cast<int>(attr1 & 0x01FFu);
+    const int y = static_cast<int>(attr0 & 0x00FFu);
+    // Race OAM slots 0-7 are its eight 8x8 minimap markers. Attribute 2 is
+    // rewritten during the frame and differs between parked OAM and the
+    // scanline latch, so identify them by their stable slot/shape/map bounds.
+    if (out_x && bus && g_ws_extra_right != 0 &&
+        race_layout(bus->io().raw()) &&
+        oam_index >= 0 && oam_index < 8 &&
+        (attr0 & 0xC300u) == 0 &&
+        (attr1 & 0xC000u) == 0 &&
+        raw_x >= 160 && raw_x < 240 &&
+        y >= 72 && y < 160) {
+        int x = raw_x;
+        if (x & 0x0100) x -= 0x0200;
+        *out_x = x + static_cast<int>(g_ws_extra_right);
+        return 1;
+    }
+
+    return g_previous_obj_attr_x_provider
+        ? g_previous_obj_attr_x_provider(
+              oam_index, attr0, attr1, attr2, out_x)
+        : 0;
+}
+
 }  // namespace
 
 void install_extended_view(std::uint32_t, std::uint32_t) {
@@ -194,6 +224,10 @@ void install_extended_view(std::uint32_t, std::uint32_t) {
         gba::g_ws_bg_x_provider = race_hud_bg_x_provider;
     }
     gba::g_ws_bg_x_provider_layers |= 1u << 0;
+    if (gba::g_ws_obj_attr_x_provider != race_hud_obj_x_provider) {
+        g_previous_obj_attr_x_provider = gba::g_ws_obj_attr_x_provider;
+        gba::g_ws_obj_attr_x_provider = race_hud_obj_x_provider;
+    }
     gba::g_ws_authored_margin_layers = 1;
     gba::g_ws_pillarbox = 1;
     gba::g_ws_pillarbox_left = 0;

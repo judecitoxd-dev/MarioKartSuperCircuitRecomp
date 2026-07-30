@@ -1,7 +1,8 @@
 param(
     [int]$Port = 17656,
     [int]$ViewWidth = 480,
-    [int]$RaceFrames = 600
+    [int]$RaceFrames = 600,
+    [switch]$DumpRaceOam
 )
 
 $ErrorActionPreference = "Stop"
@@ -144,6 +145,15 @@ try {
         if ([int]$screenshot.w -ne $ViewWidth -or
             [int]$screenshot.h -ne 160) {
             throw "$($case.Name) returned $($screenshot.w)x$($screenshot.h), expected ${ViewWidth}x160"
+        }
+        if ($DumpRaceOam -and $case.Name -eq "race") {
+            $oam = Invoke-NativeCommand @{
+                cmd = "read_oam"
+                addr = 0
+                len = 1024
+            }
+            $oam.data | Set-Content -LiteralPath (
+                Join-Path $root "build\hud-tcp-race-oam.hex")
         }
         $png = Join-Path $root "build\hud-tcp-$($case.Name).png"
         Save-RgbPng $screenshot $png
