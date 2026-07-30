@@ -7,6 +7,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(GBARECOMP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/gbarecomp"
     CACHE PATH "Path to this game's gbarecomp worktree")
+set(RECOMP_UI_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/recomp-ui"
+    CACHE PATH "Path to the shared recomp-ui checkout")
+set(GBARECOMP_RUNTIME_UI_ROOT "${RECOMP_UI_ROOT}"
+    CACHE PATH "recomp-ui root used by the live GBA runtime adapter")
+set(GBARECOMP_ENABLE_MODS ON CACHE BOOL
+    "Enable Mario Kart: Super Circuit's mod catalog and GBA mod packages" FORCE)
 if(NOT EXISTS "${GBARECOMP_ROOT}/CMakeLists.txt")
     message(FATAL_ERROR
         "GBARECOMP_ROOT is not a gbarecomp checkout:\n"
@@ -26,6 +32,8 @@ file(GLOB GAME_GENERATED_SOURCES CONFIGURE_DEPENDS
 
 add_executable(MarioKartSuperCircuitRecomp
     src/main.cpp
+    src/mksc_extended_view.cpp
+    src/mods/mksc_adaptive_view_plugin.cpp
     ${GAME_GENERATED_SOURCES})
 
 # Keep every generated guest shard cheaper to compile than the runtime. The
@@ -56,6 +64,40 @@ target_compile_definitions(MarioKartSuperCircuitRecomp PRIVATE
     GBARECOMP_DEFAULT_DEBUG_PORT=19872
     GBARECOMP_WINDOW_TITLE="MarioKartSuperCircuitRecomp"
     GBARECOMP_DEFAULT_GAME_CONFIG="game.toml")
+
+# Keep recomp-ui and its Dear ImGui sources isolated from the generated guest
+# shards. Only this small bridge and main.cpp know that the launcher exists.
+option(GBAGAME_RECOMP_UI "Build the recomp-ui pre-boot launcher" ON)
+if(GBAGAME_RECOMP_UI)
+    include(${RECOMP_UI_ROOT}/recomp_ui.cmake)
+    add_library(game_launcher_ui STATIC src/game_launcher_boot.cpp)
+    target_include_directories(game_launcher_ui PRIVATE
+        "${GBARECOMP_ROOT}/src/runtime"
+        "${GBARECOMP_ROOT}/src/gba"
+        src)
+    target_compile_definitions(game_launcher_ui PRIVATE
+        GBARECOMP_ENABLE_MODS=1)
+    recomp_target_launcher_ui(game_launcher_ui CONSOLE gba)
+    find_package(SDL2 REQUIRED)
+    target_link_libraries(game_launcher_ui PUBLIC SDL2::SDL2)
+    if(WIN32)
+        target_link_libraries(game_launcher_ui PUBLIC opengl32)
+    endif()
+    target_link_libraries(MarioKartSuperCircuitRecomp PRIVATE game_launcher_ui)
+    set_property(SOURCE src/main.cpp APPEND PROPERTY
+        COMPILE_DEFINITIONS GBAGAME_RECOMP_UI)
+endif()
+
+# Ship the game-owned, disabled-by-default adaptive-view package beside the
+# executable so recomp-ui can expose it in the Mods tab.
+set(MKSC_PRELOADED_MODS "${CMAKE_CURRENT_SOURCE_DIR}/mods/preloaded")
+if(EXISTS "${MKSC_PRELOADED_MODS}/packages")
+    add_custom_command(TARGET MarioKartSuperCircuitRecomp POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${MKSC_PRELOADED_MODS}"
+            "$<TARGET_FILE_DIR:MarioKartSuperCircuitRecomp>/mods"
+        COMMENT "Preloading the Mario Kart: Super Circuit mod catalog")
+endif()
 
 if(MSVC)
     target_link_options(MarioKartSuperCircuitRecomp PRIVATE /STACK:16777216)

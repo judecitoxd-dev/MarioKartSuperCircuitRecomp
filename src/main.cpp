@@ -1,7 +1,14 @@
 #include <cstdio>
 #include <cstring>
+#include <string>
+#include <vector>
 
 #include "runtime.h"
+#include "mksc_extended_view.h"
+
+#if defined(GBAGAME_RECOMP_UI)
+#include "game_launcher_boot.h"
+#endif
 
 int main(int argc, char** argv) {
     for (int i = 1; i < argc; ++i) {
@@ -15,5 +22,28 @@ int main(int argc, char** argv) {
     gbarecomp::RunOptions opts;
     opts.builtin_game_name = "Mario Kart: Super Circuit (USA)";
     opts.builtin_rom_sha1 = "9d327c030c3e2d9007990518594f70c3340ac56f";
+    opts.builtin_rom_crc32 = 0xED316E37u;
+    opts.mod_game_id = "mario-kart-super-circuit-us";
+    opts.mod_owns_adaptive_view = true;
+    opts.max_resize_view_width = 480;
+    opts.resize_driven_view = true;
+    opts.extended_view_init = &mksc::install_extended_view;
+    opts.launcher_expose_widescreen = false;
+    opts.launcher_expose_adaptive_view = false;
+    opts.launcher_region = "USA";
+    // The launcher reads [rom].path and [bios].path from this file when its
+    // per-user cache is empty, so the verified local ROM is preselected.
+    opts.launcher_game_config = "game.toml";
+    opts.launcher_save_path = "saves/mario_kart_super_circuit_usa.sav";
+
+#if defined(GBAGAME_RECOMP_UI)
+    std::vector<std::string> args(argv, argv + argc);
+    if (game_launcher_preboot(args, opts)) return 0;
+    std::vector<char*> av;
+    av.reserve(args.size());
+    for (auto& arg : args) av.push_back(arg.data());
+    return gbarecomp::run_game(static_cast<int>(av.size()), av.data(), opts);
+#else
     return gbarecomp::run_game(argc, argv, opts);
+#endif
 }

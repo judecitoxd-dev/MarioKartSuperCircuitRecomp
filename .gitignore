@@ -20,6 +20,8 @@ saves/
 *.png
 bios.cfg
 rom.cfg
+config.ini
+keybinds.ini
 recomp_coverage*.json
 recomp_master_misses*.toml.frag
 recomp_seed_proposals.toml
