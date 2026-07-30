@@ -8,6 +8,7 @@ generated/*.h
 generated/*.json
 build/
 build-*/
+release-stage/
 recomp_cache/
 saves/
 *.sav

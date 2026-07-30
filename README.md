@@ -43,3 +43,16 @@ Passing requires zero unmapped accesses, zero unhandled I/O, zero dispatch
 misses, zero interpreted instructions, and a non-empty final frame capture for
 both routes. The ROM, BIOS, generated code, saves, logs, and captures remain
 local and ignored.
+
+## Windows release
+
+Build the redistributable Windows x64 archive with:
+
+```powershell
+pwsh tools/make_release.ps1 -Version 0.0.1
+```
+
+The archive contains the stripped executable, recomp-ui assets and box art,
+built-in mod catalog, MinGW/SDL runtime DLLs, and the local overlay toolchain.
+It never contains the game ROM, a retail GBA BIOS, save data, generated source,
+or developer configuration.
