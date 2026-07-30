@@ -32,7 +32,7 @@ struct HudRect {
 // countdown, and pause dialog so they remain centered.
 constexpr HudRect kLeftHud[] = {
     {0, 0, 100, 28},    // coins + lap
-    {0, 32, 32, 128},   // running order, including its right-hand trim
+    {0, 28, 32, 128},   // running order, including animated portrait spill
     {0, 120, 64, 160},  // current position
 };
 constexpr HudRect kRightHud[] = {
