@@ -8,10 +8,34 @@
 #include "gba_ppu.h"
 #include "runtime_bus_bridge.h"
 
+extern "C" unsigned g_ws_extra_left;
+extern "C" unsigned g_ws_extra_right;
+
 namespace mksc {
 namespace {
 
 int (*g_previous_tilemap_provider)(int, int, int, std::uint16_t*) = nullptr;
+int (*g_previous_bg_x_provider)(int, int, int, int*) = nullptr;
+
+struct HudRect {
+    int x0;
+    int y0;
+    int x1;
+    int y1;
+};
+
+// BG0 is a transparent race-HUD plane. These are the five authored groups
+// visible in native 240x160 space. Deliberately exclude the center item box,
+// countdown, and pause dialog so they remain centered.
+constexpr HudRect kLeftHud[] = {
+    {0, 0, 100, 36},    // coins + lap
+    {0, 32, 24, 128},   // running order
+    {0, 120, 64, 160},  // current position
+};
+constexpr HudRect kRightHud[] = {
+    {140, 0, 240, 36},   // timer + race indicators
+    {160, 72, 240, 160}, // minimap
+};
 
 std::uint16_t read16(const std::uint8_t* io, unsigned offset) {
     return static_cast<std::uint16_t>(
@@ -105,11 +129,71 @@ int race_tilemap_provider(int bg, int hw_x, int screen_y,
         : gba::kWsTilemapUnavailable;
 }
 
+bool inside(const HudRect& rect, int x, int y) {
+    return x >= rect.x0 && x < rect.x1 &&
+           y >= rect.y0 && y < rect.y1;
+}
+
+int race_hud_bg_x_provider(int bg, int output_x, int screen_y,
+                           int* out_hw_x) {
+    gba::GbaBus* bus = gbarecomp::active_bus();
+    if (bg != 0 || !out_hw_x || !bus || !race_layout(bus->io().raw())) {
+        return g_previous_bg_x_provider
+            ? g_previous_bg_x_provider(bg, output_x, screen_y, out_hw_x)
+            : 0;
+    }
+
+    const int hw_x = output_x - static_cast<int>(g_ws_extra_left);
+    const int left_shift = -static_cast<int>(g_ws_extra_left);
+    const int right_shift = static_cast<int>(g_ws_extra_right);
+
+    // Draw each group at its adaptive destination first.
+    for (const HudRect& rect : kLeftHud) {
+        const HudRect destination = {
+            rect.x0 + left_shift, rect.y0,
+            rect.x1 + left_shift, rect.y1};
+        if (inside(destination, hw_x, screen_y)) {
+            *out_hw_x = hw_x - left_shift;
+            return 1;
+        }
+    }
+    for (const HudRect& rect : kRightHud) {
+        const HudRect destination = {
+            rect.x0 + right_shift, rect.y0,
+            rect.x1 + right_shift, rect.y1};
+        if (inside(destination, hw_x, screen_y)) {
+            *out_hw_x = hw_x - right_shift;
+            return 1;
+        }
+    }
+
+    // Remove the original copy after it has moved. A negative action makes
+    // only this transparent HUD-plane sample disappear; the road, scenery,
+    // racers, and centered UI continue through their independent layers.
+    if (left_shift != 0) {
+        for (const HudRect& rect : kLeftHud)
+            if (inside(rect, hw_x, screen_y)) return -1;
+    }
+    if (right_shift != 0) {
+        for (const HudRect& rect : kRightHud)
+            if (inside(rect, hw_x, screen_y)) return -1;
+    }
+
+    return g_previous_bg_x_provider
+        ? g_previous_bg_x_provider(bg, output_x, screen_y, out_hw_x)
+        : 0;
+}
+
 }  // namespace
 
 void install_extended_view(std::uint32_t, std::uint32_t) {
     g_previous_tilemap_provider = gba::g_ws_tilemap_provider;
     gba::g_ws_tilemap_provider = race_tilemap_provider;
+    if (gba::g_ws_bg_x_provider != race_hud_bg_x_provider) {
+        g_previous_bg_x_provider = gba::g_ws_bg_x_provider;
+        gba::g_ws_bg_x_provider = race_hud_bg_x_provider;
+    }
+    gba::g_ws_bg_x_provider_layers |= 1u << 0;
     gba::g_ws_authored_margin_layers = 1;
     gba::g_ws_pillarbox = 1;
     gba::g_ws_pillarbox_left = 0;
