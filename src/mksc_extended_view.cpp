@@ -18,6 +18,7 @@ int (*g_previous_tilemap_provider)(int, int, int, std::uint16_t*) = nullptr;
 int (*g_previous_bg_x_provider)(int, int, int, int*) = nullptr;
 int (*g_previous_obj_attr_x_provider)(int, std::uint16_t, std::uint16_t,
                                       std::uint16_t, int*) = nullptr;
+int (*g_previous_affine_filter_provider)(int, int) = nullptr;
 
 struct HudRect {
     int x0;
@@ -30,12 +31,12 @@ struct HudRect {
 // visible in native 240x160 space. Deliberately exclude the center item box,
 // countdown, and pause dialog so they remain centered.
 constexpr HudRect kLeftHud[] = {
-    {0, 0, 100, 36},    // coins + lap
+    {0, 0, 100, 28},    // coins + lap
     {0, 32, 32, 128},   // running order, including its right-hand trim
     {0, 120, 64, 160},  // current position
 };
 constexpr HudRect kRightHud[] = {
-    {140, 0, 240, 36},   // timer + race indicators
+    {140, 0, 240, 28},   // timer + race indicators
     {160, 72, 240, 160}, // minimap
 };
 
@@ -214,6 +215,14 @@ int race_hud_obj_x_provider(int oam_index, std::uint16_t attr0,
         : 0;
 }
 
+int race_affine_filter_provider(int bg, int screen_y) {
+    gba::GbaBus* bus = gbarecomp::active_bus();
+    if (bg == 2 && bus && race_layout(bus->io().raw())) return 1;
+    return g_previous_affine_filter_provider
+        ? g_previous_affine_filter_provider(bg, screen_y)
+        : 0;
+}
+
 }  // namespace
 
 void install_extended_view(std::uint32_t, std::uint32_t) {
@@ -227,6 +236,12 @@ void install_extended_view(std::uint32_t, std::uint32_t) {
     if (gba::g_ws_obj_attr_x_provider != race_hud_obj_x_provider) {
         g_previous_obj_attr_x_provider = gba::g_ws_obj_attr_x_provider;
         gba::g_ws_obj_attr_x_provider = race_hud_obj_x_provider;
+    }
+    if (gba::g_ws_affine_filter_provider != race_affine_filter_provider) {
+        g_previous_affine_filter_provider =
+            gba::g_ws_affine_filter_provider;
+        gba::g_ws_affine_filter_provider =
+            race_affine_filter_provider;
     }
     gba::g_ws_authored_margin_layers = 1;
     gba::g_ws_pillarbox = 1;

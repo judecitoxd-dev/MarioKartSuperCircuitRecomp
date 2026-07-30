@@ -44,6 +44,8 @@ window_title = "MarioKartSuperCircuitRecomp"
 [video]
 screen = "frontlit"
 widescreen = 0
+sharp_filter = true
+affine_filter = true
 
 [audio]
 shadow = false

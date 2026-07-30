@@ -2,6 +2,7 @@ param(
     [int]$Port = 17656,
     [int]$ViewWidth = 480,
     [int]$RaceFrames = 600,
+    [int]$AffineFilter = -1,
     [switch]$DumpRaceOam
 )
 
@@ -27,16 +28,20 @@ try {
     # TCP sessions have no host drawable to select adaptive width. Permit the
     # explicit debug width while keeping the shipped launcher policy unchanged.
     $env:GBARECOMP_WS_WIP = "1"
+    $arguments = @(
+        "--tcp", $Port,
+        "--view-width", $ViewWidth,
+        "--bios", $bios,
+        "--rom", $rom,
+        "--no-window",
+        $config
+    )
+    if ($AffineFilter -ge 0) {
+        $arguments = @("--affine-filter", $AffineFilter) + $arguments
+    }
     $process = Start-Process `
         -FilePath $exe `
-        -ArgumentList @(
-            "--tcp", $Port,
-            "--view-width", $ViewWidth,
-            "--bios", $bios,
-            "--rom", $rom,
-            "--no-window",
-            $config
-        ) `
+        -ArgumentList $arguments `
         -WorkingDirectory (Join-Path $root "build") `
         -WindowStyle Hidden `
         -RedirectStandardOutput $stdout `
