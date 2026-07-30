@@ -30,6 +30,10 @@ int main(int argc, char** argv) {
     opts.extended_view_init = &mksc::install_extended_view;
     opts.launcher_expose_widescreen = false;
     opts.launcher_expose_adaptive_view = false;
+    opts.launcher_expose_sharp_filter = true;
+    opts.launcher_default_sharp_filter = true;
+    opts.launcher_expose_affine_filter = true;
+    opts.launcher_default_affine_filter = true;
     opts.launcher_region = "USA";
     // The launcher reads [rom].path and [bios].path from this file when its
     // per-user cache is empty, so the verified local ROM is preselected.
