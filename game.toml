@@ -50,6 +50,15 @@ affine_filter = true
 [audio]
 shadow = false
 
+# The road renderer generates affine parameters every frame but normally
+# alternates between two IWRAM output buffers. DMA0 always consumes the first
+# buffer, so the visible road updates at 30 FPS. The opt-in 60 FPS mod overrides
+# this MOVS immediate with the current selector value; the following subtraction
+# and store then keep the selector at zero without modifying the retail ROM.
+[[thumb_alu_immediate_override]]
+addr = 0x08030C14
+note = "Opt-in 60 FPS track renderer: hold the affine output selector at DMA0 buffer zero"
+
 # The flash-identification routine at 0x08061390 copies this four-byte
 # `ldrb r0, [r0]; bx lr` helper to its stack frame and calls it in Thumb mode.
 # The mapping is verified from the ROM copy loop at 0x080615D8 and the strict

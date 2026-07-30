@@ -1,0 +1,24 @@
+format_version = 1
+id = "mario-kart-super-circuit.enhancement.track-60fps"
+version = "1.0.0"
+name = "Mario Kart: Super Circuit 60 FPS Track Rendering"
+author = "antimattur; recomp integration by mstan"
+description = "Updates the affine-rendered track every frame instead of every other frame. Based on antimattur's 60 FPS patch research."
+license = "MIT"
+resolver = "declarative"
+save_compatibility = "shared"
+
+[[target]]
+game_id = "mario-kart-super-circuit-us"
+rom_sha1 = "9d327c030c3e2d9007990518594f70c3340ac56f"
+
+[[feature]]
+id = "track-60fps"
+name = "60 FPS Track Rendering"
+description = "Generate the visible Mode 7-style road every frame for smoother racing. Game logic, menus, and save data are unchanged."
+group = "Graphics"
+default_enabled = false
+
+[[plugin]]
+feature = "track-60fps"
+id = "mario-kart-super-circuit.track-60fps"

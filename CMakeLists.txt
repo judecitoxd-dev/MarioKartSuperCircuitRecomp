@@ -34,6 +34,7 @@ add_executable(MarioKartSuperCircuitRecomp
     src/main.cpp
     src/mksc_extended_view.cpp
     src/mods/mksc_adaptive_view_plugin.cpp
+    src/mods/mksc_track_60fps_plugin.cpp
     ${GAME_GENERATED_SOURCES})
 
 # Keep every generated guest shard cheaper to compile than the runtime. The
@@ -88,8 +89,8 @@ if(GBAGAME_RECOMP_UI)
         COMPILE_DEFINITIONS GBAGAME_RECOMP_UI)
 endif()
 
-# Ship the game-owned, disabled-by-default adaptive-view package beside the
-# executable so recomp-ui can expose it in the Mods tab.
+# Ship the game-owned, disabled-by-default enhancement packages beside the
+# executable so recomp-ui can expose them in the Mods tab.
 set(MKSC_PRELOADED_MODS "${CMAKE_CURRENT_SOURCE_DIR}/mods/preloaded")
 if(EXISTS "${MKSC_PRELOADED_MODS}/packages")
     add_custom_command(TARGET MarioKartSuperCircuitRecomp POST_BUILD
