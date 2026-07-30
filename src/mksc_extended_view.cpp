@@ -1,5 +1,6 @@
 #include "mksc_extended_view.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -45,7 +46,7 @@ std::uint16_t read16(const std::uint8_t* io, unsigned offset) {
         io[offset] | (static_cast<std::uint16_t>(io[offset + 1]) << 8));
 }
 
-bool race_layout(const std::uint8_t* io) {
+bool race_register_layout(const std::uint8_t* io) {
     const std::uint16_t dispcnt = read16(io, 0x00);
     const std::uint16_t mode = dispcnt & 0x0007u;
     // Mario Kart changes from Mode 0 (HUD/horizon) to Mode 1 (affine road)
@@ -79,6 +80,54 @@ bool race_layout(const std::uint8_t* io) {
     return (bg0cnt & 0xC003u) == 0x0000u &&
            (bg3cnt & 0xC003u) == 0x0003u &&
            (standard_race || paused_lower_race);
+}
+
+bool compute_race_layout(const gba::GbaBus* bus) {
+    if (!bus) return false;
+    const std::uint8_t* io = bus->io().raw();
+    if (!race_register_layout(io)) return false;
+
+    // Race results preserve the live road's display-control and background
+    // registers, so the PPU signature alone also matched the timing and
+    // standings screens. Require the stable "LAP" and "TIME" tiles from the
+    // actual race HUD before relocating anything. Pauses and overlays retain
+    // this map underneath their centered UI; results replace it.
+    // Check the canonical top-half HUD map in screen block 7. Live races use
+    // block 7 for this map even while the lower Mode 1 phase temporarily
+    // selects block 6. Results reverse that arrangement and leave a stale
+    // race-like map in block 6, so following the instantaneous BG0CNT would
+    // still misclassify the lower half of results (and reject live Mode 1).
+    constexpr std::size_t map_base = 7u * 0x800u;
+    constexpr std::size_t kVramBytes = 96u * 1024u;
+    constexpr unsigned kHudTiles[] = {4, 5, 6, 18, 19, 20};
+    constexpr std::uint16_t kHudValues[] = {
+        0x0044u, 0x0045u, 0x0046u, 0x004Au, 0x004Bu, 0x004Cu};
+    const std::uint8_t* vram = bus->vram_ptr();
+    if (!vram || map_base + (kHudTiles[5] + 1u) * 2u > kVramBytes)
+        return false;
+    for (unsigned i = 0; i < 6; ++i) {
+        // Palette-bank and flip attributes are applied while the frame is
+        // rendered; the tile identity in bits 0..9 is the stable signature.
+        const std::uint16_t entry = read16(vram, static_cast<unsigned>(
+            map_base + kHudTiles[i] * 2u));
+        if ((entry & 0x03FFu) != kHudValues[i]) return false;
+    }
+    return true;
+}
+
+bool race_layout(const gba::GbaBus* bus) {
+    // The providers below are hot (the BG remapper runs per output pixel).
+    // Scene identity cannot change inside one emulated frame, so inspect the
+    // game-owned tilemap only once per VBlank rather than six times per pixel.
+    static const gba::GbaBus* cached_bus = nullptr;
+    static unsigned long long cached_vblank = ~0ull;
+    static bool cached_race = false;
+    if (cached_bus != bus || cached_vblank != g_runtime_vblank_starts) {
+        cached_bus = bus;
+        cached_vblank = g_runtime_vblank_starts;
+        cached_race = compute_race_layout(bus);
+    }
+    return cached_race;
 }
 
 void trace_scene_once(bool race, const std::uint8_t* io) {
@@ -115,7 +164,7 @@ int race_tilemap_provider(int bg, int hw_x, int screen_y,
     }
 
     const std::uint8_t* io = bus->io().raw();
-    const bool race = race_layout(io);
+    const bool race = race_layout(bus);
     trace_scene_once(race, io);
     gba::g_ws_pillarbox = race ? 0 : 1;
 
@@ -140,7 +189,7 @@ bool inside(const HudRect& rect, int x, int y) {
 int race_hud_bg_x_provider(int bg, int output_x, int screen_y,
                            int* out_hw_x) {
     gba::GbaBus* bus = gbarecomp::active_bus();
-    if (bg != 0 || !out_hw_x || !bus || !race_layout(bus->io().raw())) {
+    if (bg != 0 || !out_hw_x || !bus || !race_layout(bus)) {
         return g_previous_bg_x_provider
             ? g_previous_bg_x_provider(bg, output_x, screen_y, out_hw_x)
             : 0;
@@ -197,7 +246,7 @@ int race_hud_obj_x_provider(int oam_index, std::uint16_t attr0,
     // rewritten during the frame and differs between parked OAM and the
     // scanline latch, so identify them by their stable slot/shape/map bounds.
     if (out_x && bus && g_ws_extra_right != 0 &&
-        race_layout(bus->io().raw()) &&
+        race_layout(bus) &&
         oam_index >= 0 && oam_index < 8 &&
         (attr0 & 0xC300u) == 0 &&
         (attr1 & 0xC000u) == 0 &&
@@ -217,7 +266,7 @@ int race_hud_obj_x_provider(int oam_index, std::uint16_t attr0,
 
 int race_affine_filter_provider(int bg, int screen_y) {
     gba::GbaBus* bus = gbarecomp::active_bus();
-    if (bg == 2 && bus && race_layout(bus->io().raw())) return 1;
+    if (bg == 2 && bus && race_layout(bus)) return 1;
     return g_previous_affine_filter_provider
         ? g_previous_affine_filter_provider(bg, screen_y)
         : 0;
