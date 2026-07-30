@@ -1,0 +1,68 @@
+# gbarecomp-keyinput-v1
+# frame,keyinput_active_low
+# A: enter the default single-player selection from the title screen.
+0,0x03FF
+1200,0x03FE
+1206,0x03FF
+# Select Mario GP.
+2000,0x03FE
+2006,0x03FF
+# Select 50cc.
+3000,0x03FE
+3006,0x03FF
+# Accept the default random driver.
+4000,0x03FE
+4006,0x03FF
+# Confirm the driver selected by the roulette.
+5000,0x03FE
+5006,0x03FF
+# Select the default Mushroom Cup.
+6200,0x03FE
+6206,0x03FF
+# Confirm the cup after its preview animation.
+8200,0x03FE
+8206,0x03FF
+# Hold A to accelerate once the race begins, then deterministically fuzz the
+# ordinary gameplay controls in short, bounded bursts.  Steering always returns
+# to neutral-A so the replay exercises handling without pinning one direction.
+8600,0x03FE
+9200,0x03EE
+9290,0x03FE
+9600,0x03DE
+9690,0x03FE
+10000,0x02EE
+10030,0x03EE
+10090,0x03FE
+10400,0x03DE
+10490,0x03FE
+10900,0x02FE
+10918,0x03FE
+11300,0x03EE
+11390,0x03FE
+11800,0x03DE
+11890,0x03FE
+12300,0x01FE
+12318,0x03FE
+12700,0x03EE
+12790,0x03FE
+13200,0x03DE
+13290,0x03FE
+13700,0x02EE
+13730,0x03EE
+13790,0x03FE
+14200,0x03DE
+14290,0x03FE
+14700,0x03EE
+14790,0x03FE
+15200,0x02FE
+15218,0x03FE
+15700,0x03DE
+15790,0x03FE
+16200,0x03EE
+16290,0x03FE
+16700,0x01FE
+16718,0x03FE
+17200,0x03DE
+17290,0x03FE
+17700,0x03EE
+17790,0x03FE

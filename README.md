@@ -28,3 +28,18 @@ C:\msys64\mingw64\bin\cmake.exe --build build --target MarioKartSuperCircuitReco
 Runtime closure uses the same standard as Mega Man Zero: no interpreted or
 cache-healed PCs in a fully-static verification run, plus independent-oracle
 comparison before visible/correctness claims.
+
+The deterministic acceptance route leaves the title screen, selects Mario GP,
+50cc, a driver and Mushroom Cup, then holds acceleration while applying bounded
+steering, hop/drift and item-button pulses through live race gameplay. Run both
+the passive attract/title soak and gameplay route with interpreter and
+self-healing fallback disabled:
+
+```powershell
+pwsh tools/test-attract-gameplay.ps1
+```
+
+Passing requires zero unmapped accesses, zero unhandled I/O, zero dispatch
+misses, zero interpreted instructions, and a non-empty final frame capture for
+both routes. The ROM, BIOS, generated code, saves, logs, and captures remain
+local and ignored.

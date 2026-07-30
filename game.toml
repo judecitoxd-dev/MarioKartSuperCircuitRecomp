@@ -14,7 +14,10 @@ entry_pc = 0x08000000
 # control-flow evidence seeds code, and generated guest code is sharded for
 # practical iterative builds.
 speculative_literal_harvest = false
-codegen_shards = 16
+aot_scan_start = 0x08000000
+aot_scan_end = 0x08400000
+static_resume_all = true
+codegen_shards = 64
 
 [identity]
 sha1 = "9d327c030c3e2d9007990518594f70c3340ac56f"
@@ -23,7 +26,7 @@ md5 = "784a036ff1aae709e90167186639b75e"
 [bios]
 path = "gbarecomp/bios/gba_bios.bin"
 sha1 = "300c20df6731a33952ded8c436f7f186d25d3492"
-hle = true
+hle = false
 
 [rom]
 path = "roms/mario_kart_super_circuit_usa.gba"
@@ -44,3 +47,564 @@ widescreen = 0
 
 [audio]
 shadow = false
+
+# The flash-identification routine at 0x08061390 copies this four-byte
+# `ldrb r0, [r0]; bx lr` helper to its stack frame and calls it in Thumb mode.
+# The mapping is verified from the ROM copy loop at 0x080615D8 and the strict
+# LLE execution trace.
+[[code_copy]]
+runtime_start = 0x03007A84
+source_start = 0x080615D4
+size = 0x00000004
+name = "flash_read_byte_stack_helper"
+note = "Verified stack-local flash helper copied by 0x080615D8"
+
+[[extra_func]]
+addr = 0x03007A84
+mode = "thumb"
+name = "flash_read_byte_stack_helper_iwram"
+note = "Thumb entry for the verified four-byte stack-local code copy"
+
+# Startup copies the cartridge IRQ trampoline into IWRAM.  The source,
+# destination, and byte count are loaded at 0x080625E4 before the copy call:
+# ROM 0x080000FC -> IWRAM 0x03002400, 0x100 bytes.
+[[code_copy]]
+runtime_start = 0x03002400
+source_start = 0x080000FC
+size = 0x00000100
+name = "irq_handler_iwram"
+note = "Verified startup IRQ-handler copy configured by 0x080625E4"
+
+[[extra_func]]
+addr = 0x03002400
+mode = "arm"
+name = "irq_handler_iwram_entry"
+note = "ARM entry for the verified 0x100-byte startup code copy"
+
+# The IRQ dispatch table at 0x0802D298 stores 0x0802D2BD.  This is a distinct
+# Thumb callback immediately following the return sequence of the preceding
+# routine, even though linear discovery initially rolled it into that host.
+[[extra_func]]
+addr = 0x0802D2BC
+mode = "thumb"
+name = "main_irq_callback"
+note = "Address-taken callback referenced by the IRQ table at 0x0802D298"
+
+# Sound-driver channel state stores 0x0805F88D as a callback.  The target is
+# the aligned Thumb routine directly after the `bx lr` at 0x0805F882.
+[[extra_func]]
+addr = 0x0805F88C
+mode = "thumb"
+name = "sound_channel_callback"
+note = "Address-taken sound callback observed from the channel state at +0x28"
+
+# The sound state also stores 0x08060A0D.  It starts a separate mixer routine
+# after the preceding function's return at 0x08060A0A.
+[[extra_func]]
+addr = 0x08060A0C
+mode = "thumb"
+name = "sound_mixer_callback"
+note = "Address-taken mixer callback observed from the sound state at +0x28"
+
+# Sound initialization at 0x0805FE9C clears the Thumb bit from 0x0805F2F5,
+# then invokes CpuSet with destination 0x03002600 and control 0x040000E0.
+# That is 0xE0 32-bit units, or exactly 0x380 bytes.
+[[code_copy]]
+runtime_start = 0x03002600
+source_start = 0x0805F2F4
+size = 0x00000380
+name = "sound_driver_iwram"
+note = "Verified sound-driver CpuSet relocation configured at 0x0805FE9C"
+
+[[extra_func]]
+addr = 0x03002600
+mode = "thumb"
+name = "sound_driver_iwram_entry"
+note = "Thumb entry for the verified 0x380-byte sound-driver relocation"
+
+# Several mode/scene dispatch tables store 0x08000E6D (including
+# 0x0802D2A8).  The target is a Thumb scene callback following data, so it
+# cannot be recovered by a simple linear fall-through walk.
+[[extra_func]]
+addr = 0x08000E6C
+mode = "thumb"
+name = "scene_callback_08000e6c"
+note = "Address-taken Thumb callback referenced by multiple scene tables"
+
+# The interrupt callback table at 0x080010A0 stores these two Thumb entries.
+# Both begin directly after prior return sequences and are called indirectly.
+[[extra_func]]
+addr = 0x08000994
+mode = "thumb"
+name = "video_irq_callback_08000994"
+note = "Address-taken callback referenced at 0x080010A0"
+
+[[extra_func]]
+addr = 0x080018F8
+mode = "thumb"
+name = "video_irq_callback_080018f8"
+note = "Address-taken callback referenced at 0x080010A8"
+
+# The active interrupt table at 0x0802D2A0 stores 0x08030561.  The callback
+# begins after the return and literal pool of the prior routine.
+[[extra_func]]
+addr = 0x08030560
+mode = "thumb"
+name = "irq_callback_08030560"
+note = "Address-taken interrupt callback referenced at 0x0802D2A0"
+
+# The dispatcher at 0x08001104 indexes this 30-entry absolute-address table
+# with a value bounded to 0..29, then writes the selected even address to PC
+# while remaining in Thumb state.
+[[jump_table]]
+addr = 0x08001114
+stride = 4
+count = 30
+format = "abs32"
+entries_mode = "thumb"
+name = "scene_state_switch"
+note = "Reviewed 30-entry Thumb switch table used by the 0x08001104 dispatcher"
+
+# Sound command dispatch uses this contiguous table of twelve Thumb callbacks.
+# The final entry is 0x080608AD; the following word at 0x08060268 is the
+# non-pointer constant 0x40.
+[[jump_table]]
+addr = 0x08060238
+stride = 4
+count = 12
+format = "abs32"
+entries_mode = "auto"
+name = "sound_command_callbacks"
+note = "Reviewed 12-entry sound callback table ending before 0x08060268"
+
+# The scene callback at 0x080138DE bounds its state to 0..7, then loads an
+# absolute Thumb target from this eight-entry table and writes it to PC.
+[[jump_table]]
+addr = 0x080138F8
+stride = 4
+count = 8
+format = "abs32"
+entries_mode = "thumb"
+name = "scene_callback_08013134_state_switch"
+
+# The race-state dispatcher at 0x0800D862 bounds its index to 0..9 and
+# dispatches through ten absolute Thumb addresses beginning here.
+[[jump_table]]
+addr = 0x0800D8A0
+stride = 4
+count = 10
+format = "abs32"
+entries_mode = "thumb"
+name = "race_state_switch"
+note = "Reviewed 10-entry race-state table bounded by the dispatcher at 0x0800D862"
+
+# Sound initialization loads 0x0805FB69 from the literal at 0x08060358 and
+# stores it as the callback at sound-state offset 0x38.
+[[extra_func]]
+addr = 0x0805FB68
+mode = "thumb"
+name = "sound_state_callback_0805fb68"
+note = "Address-taken sound callback loaded from 0x08060358"
+
+# Scene dispatch data at 0x080017A8 stores 0x08013599. The target begins
+# after a data region and is invoked indirectly by the scene dispatcher.
+[[extra_func]]
+addr = 0x08013598
+mode = "thumb"
+name = "scene_callback_08013598"
+note = "Address-taken scene callback referenced at 0x080017A8"
+
+# This separate callback begins immediately after the prior routine's return
+# at 0x0801312C. It is stored in the active scene slot at 0x03002E2C and is
+# called indirectly by the main IRQ callback at 0x0802D2F4.
+[[extra_func]]
+addr = 0x08013134
+mode = "thumb"
+name = "scene_callback_08013134"
+note = "Address-taken main scene callback; literals at 0x08013774 and 0x080139F4"
+
+# The scene callback begins after the previous routine returns at 0x080021B6.
+# It is reached through the active callback slot polled at 0x0802D21E.
+[[extra_func]]
+addr = 0x080021CC
+mode = "thumb"
+name = "scene_callback_080021cc"
+note = "Address-taken active scene callback"
+
+# This callback starts after the previous routine's return and literal pool
+# (0x08001DC8..0x08001DD8), then is installed in the main scene callback slot.
+[[extra_func]]
+addr = 0x08001DDC
+mode = "thumb"
+name = "scene_callback_08001ddc"
+note = "Address-taken main scene callback"
+
+# Timer IRQ dispatch reaches 0x0800C681 through the callback slot consumed at
+# 0x0803056C. The routine starts directly after the prior return at 0x0800C67E.
+[[extra_func]]
+addr = 0x0800C680
+mode = "thumb"
+name = "timer_irq_callback_0800c680"
+note = "Address-taken timer IRQ callback"
+
+# Race startup installs 0x0805167D in the active scene callback slot. The
+# routine begins after the preceding return and literal pool at 0x08051678.
+[[extra_func]]
+addr = 0x0805167C
+mode = "thumb"
+name = "race_scene_callback_0805167c"
+note = "Address-taken race startup callback"
+
+# The race IRQ descriptor data at 0x08052644 and 0x0805264C stores these two
+# Thumb callbacks alongside their associated I/O-register addresses.
+[[extra_func]]
+addr = 0x08052EB0
+mode = "thumb"
+name = "race_irq_callback_08052eb0"
+note = "Address-taken IRQ callback referenced at 0x08052644"
+
+[[extra_func]]
+addr = 0x08052EDC
+mode = "thumb"
+name = "race_irq_callback_08052edc"
+note = "Address-taken IRQ callback referenced at 0x0805264C"
+
+# Race rendering data at 0x08049784 stores 0x0804AF75. This distinct IRQ
+# routine begins immediately after the prior return at 0x0804AF72.
+[[extra_func]]
+addr = 0x0804AF74
+mode = "thumb"
+name = "race_render_irq_callback_0804af74"
+note = "Address-taken race IRQ callback referenced at 0x08049784"
+
+# Race display setup data stores 0x0804B019 at 0x08048E30 and 0x0804AE04.
+# The callback starts after the prior routine's literal pool at 0x0804B014.
+[[extra_func]]
+addr = 0x0804B018
+mode = "thumb"
+name = "race_display_irq_callback_0804b018"
+note = "Address-taken race display IRQ callback"
+
+# Race scene setup stores 0x08051F85 at 0x08051904. The routine begins after
+# the previous callback's return and literal pool at 0x08051F80.
+[[extra_func]]
+addr = 0x08051F84
+mode = "thumb"
+name = "race_main_callback_08051f84"
+note = "Address-taken race main callback referenced at 0x08051904"
+
+# The race task descriptor at 0x08031808 stores 0x0803414D. The task callback
+# starts after a standalone return at 0x08034148 and its alignment padding.
+[[extra_func]]
+addr = 0x0803414C
+mode = "thumb"
+name = "race_task_callback_0803414c"
+note = "Address-taken race task callback referenced at 0x08031808"
+
+# Race setup stores this callback pair in a task descriptor at 0x08052B34 and
+# 0x08052B40. Both are discrete Thumb routines following prior returns/pools.
+[[extra_func]]
+addr = 0x08053074
+mode = "thumb"
+name = "race_transition_task_08053074"
+note = "Address-taken task callback referenced at 0x08052B34"
+
+[[extra_func]]
+addr = 0x080530C4
+mode = "thumb"
+name = "race_transition_task_080530c4"
+note = "Address-taken task callback referenced at 0x08052B40"
+
+# Race object setup stores 0x08044361 at 0x08043890 and 0x080444B0, then calls
+# it indirectly from the object update path. It begins after the prior return.
+[[extra_func]]
+addr = 0x08044360
+mode = "thumb"
+name = "race_object_callback_08044360"
+note = "Address-taken race object callback"
+
+# Object/task callback closure collected by a 10,000-frame input-only profile,
+# then reviewed against the ROM. Each address below is a genuine routine start;
+# the nearby proposed PCs were internal basic blocks and are covered by these
+# enclosing entries.
+[[extra_func]]
+addr = 0x08030004
+mode = "thumb"
+name = "object_script_callback_08030004"
+note = "Reviewed object-script callback entry (self-heal profile)"
+
+[[extra_func]]
+addr = 0x080301A8
+mode = "thumb"
+name = "object_script_callback_080301a8"
+note = "Address-taken callback referenced at 0x08030274"
+
+[[extra_func]]
+addr = 0x08030290
+mode = "thumb"
+name = "object_script_callback_08030290"
+note = "Address-taken callback referenced at 0x08030214"
+
+[[extra_func]]
+addr = 0x0803DD58
+mode = "thumb"
+name = "race_collision_callback_0803dd58"
+note = "Address-taken callback referenced at 0x0803C434"
+
+[[extra_func]]
+addr = 0x080439FC
+mode = "thumb"
+name = "race_object_callback_080439fc"
+note = "Address-taken callback referenced at 0x08043BAC"
+
+[[extra_func]]
+addr = 0x08043AB4
+mode = "thumb"
+name = "race_object_callback_08043ab4"
+note = "Address-taken callback referenced at 0x08043894 and 0x080444AC"
+
+[[extra_func]]
+addr = 0x08044248
+mode = "thumb"
+name = "race_object_callback_08044248"
+note = "Address-taken callback referenced at 0x080443E0"
+
+[[extra_func]]
+addr = 0x08044400
+mode = "thumb"
+name = "race_object_callback_08044400"
+note = "Address-taken callback referenced at 0x08044458"
+
+[[extra_func]]
+addr = 0x08044428
+mode = "thumb"
+name = "race_object_callback_08044428"
+note = "Address-taken callback referenced at 0x08043A90"
+
+[[extra_func]]
+addr = 0x0804445C
+mode = "thumb"
+name = "race_object_callback_0804445c"
+note = "Address-taken callback referenced at 0x08044424"
+
+[[extra_func]]
+addr = 0x08052864
+mode = "thumb"
+name = "race_transition_callback_08052864"
+note = "Address-taken callback referenced at 0x08052B3C"
+
+[[extra_func]]
+addr = 0x08059E00
+mode = "thumb"
+name = "race_object_callback_08059e00"
+note = "Address-taken callback referenced at 0x08059E90"
+
+[[extra_func]]
+addr = 0x0805A6AC
+mode = "thumb"
+name = "race_object_callback_0805a6ac"
+note = "Address-taken callback referenced at 0x0805A7E8"
+
+# The active race object script stores 0x08052F8D at ROM data 0x080EFDB0.
+[[extra_func]]
+addr = 0x08052F8C
+mode = "thumb"
+name = "race_script_callback_08052f8c"
+note = "Address-taken script callback referenced at 0x080EFDB0"
+
+# Gameplay callback closure collected by a 12,000-frame replay profile, then
+# reviewed against the ROM. Adjacent high-frequency PCs in the profile are
+# internal blocks covered by these enclosing function entries.
+[[extra_func]]
+addr = 0x0804FEA0
+mode = "thumb"
+name = "race_state_callback_0804fea0"
+note = "Reviewed race-state callback entry (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x0805050C
+mode = "thumb"
+name = "race_state_callback_0805050c"
+note = "Reviewed race-state callback entry (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x08050574
+mode = "thumb"
+name = "race_state_callback_08050574"
+note = "Reviewed race-state callback entry (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x080507D4
+mode = "thumb"
+name = "race_state_callback_080507d4"
+note = "Reviewed race-state callback entry (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x08050B28
+mode = "thumb"
+name = "race_callback_08050b28"
+note = "Reviewed discrete race callback entry (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x08050B34
+mode = "thumb"
+name = "race_callback_08050b34"
+note = "Reviewed standalone return callback (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x08050B38
+mode = "thumb"
+name = "race_callback_08050b38"
+note = "Reviewed discrete race callback entry (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x08050BE4
+mode = "thumb"
+name = "race_callback_08050be4"
+note = "Reviewed discrete race callback entry (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x08050BEC
+mode = "thumb"
+name = "race_callback_08050bec"
+note = "Reviewed discrete race callback entry (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x08050C18
+mode = "thumb"
+name = "race_callback_08050c18"
+note = "Reviewed discrete race callback entry (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x08050DB8
+mode = "thumb"
+name = "race_callback_08050db8"
+note = "Reviewed discrete race callback entry (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x08050E48
+mode = "thumb"
+name = "race_callback_08050e48"
+note = "Reviewed discrete race callback entry (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x08050E64
+mode = "thumb"
+name = "race_callback_08050e64"
+note = "Reviewed discrete race callback entry (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x08050E78
+mode = "thumb"
+name = "race_callback_08050e78"
+note = "Reviewed discrete race callback entry (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x08052658
+mode = "thumb"
+name = "race_init_callback_08052658"
+note = "Reviewed race initialization callback (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x080527E0
+mode = "thumb"
+name = "race_init_callback_080527e0"
+note = "Reviewed race initialization callback (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x08052F10
+mode = "thumb"
+name = "race_script_callback_08052f10"
+note = "Reviewed race script callback entry (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x08052F6C
+mode = "thumb"
+name = "race_script_callback_08052f6c"
+note = "Reviewed race script callback entry (gameplay replay profile)"
+
+[[extra_func]]
+addr = 0x08052FEC
+mode = "thumb"
+name = "race_script_callback_08052fec"
+note = "Reviewed enclosing callback for internal block 0x0805300E"
+
+[[extra_func]]
+addr = 0x0805A1E4
+mode = "thumb"
+name = "race_object_callback_0805a1e4"
+note = "Reviewed enclosing callback for profiled internal object-update blocks"
+
+# The callback at 0x0804FEA0 bounds its state to 0..28 and dispatches through
+# this 29-entry absolute Thumb-address table.
+[[jump_table]]
+addr = 0x0804FEBC
+stride = 4
+count = 29
+format = "abs32"
+entries_mode = "thumb"
+name = "race_callback_0804fea0_state_switch"
+note = "Reviewed 29-entry race-state switch table"
+
+# Extended gameplay-input closure from the 18,000-frame fuzz route. These are
+# the true routine starts after reviewing each proposed family in disassembly;
+# profiled PCs inside their branch bodies are deliberately not listed.
+[[extra_func]]
+addr = 0x080503B4
+mode = "thumb"
+name = "race_effect_callback_080503b4"
+note = "Reviewed callback start; covers profiled internal blocks through 0x08050452"
+
+[[extra_func]]
+addr = 0x080505D8
+mode = "thumb"
+name = "race_effect_callback_080505d8"
+note = "Address-taken race effect callback; covers internal blocks through 0x0805061C"
+
+[[extra_func]]
+addr = 0x08050794
+mode = "thumb"
+name = "race_effect_callback_08050794"
+note = "Reviewed callback start; covers profiled internal blocks through 0x080507C6"
+
+[[extra_func]]
+addr = 0x0805A758
+mode = "thumb"
+name = "race_object_callback_0805a758"
+note = "Reviewed discrete race-object callback; 0x0805A77C is an internal block"
+
+[[extra_func]]
+addr = 0x0805A790
+mode = "thumb"
+name = "race_object_flag_set_0805a790"
+note = "Reviewed standalone address-taken race-object callback"
+
+[[extra_func]]
+addr = 0x0805A79C
+mode = "thumb"
+name = "race_object_flag_clear_0805a79c"
+note = "Reviewed standalone address-taken race-object callback"
+
+[[extra_func]]
+addr = 0x0805A7AC
+mode = "thumb"
+name = "race_object_reset_0805a7ac"
+note = "Reviewed standalone address-taken race-object callback"
+
+[[extra_func]]
+addr = 0x0805A7EC
+mode = "thumb"
+name = "race_object_init_0805a7ec"
+note = "Reviewed race-object initializer after the prior routine's literal pool"
+
+[[extra_func]]
+addr = 0x0805B44C
+mode = "thumb"
+name = "race_sequence_step_0805b44c"
+note = "Reviewed sequence callback; covers profiled branch blocks through 0x0805B488"
+
+[[extra_func]]
+addr = 0x0805B520
+mode = "thumb"
+name = "race_sequence_remove_0805b520"
+note = "Reviewed helper entry; covers profiled internal blocks 0x0805B532 and 0x0805B54C"
