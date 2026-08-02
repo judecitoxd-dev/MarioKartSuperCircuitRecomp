@@ -1,58 +1,109 @@
-# MarioKartSuperCircuitRecomp
+# Mario Kart: Super Circuit Recomp
 
-> _This recompilation is a **byproduct of developing
-> [gbarecomp](https://github.com/mstan/gbarecomp)** — the games are the proving ground, the framework is the goal.
-> **These are in-development previews, not finished ports — expect rough
-> edges**, and depth will keep landing over months, not days. My time for any
-> one title is limited, so I ask for your patience. Contributions are welcome —
-> testing, issues, and PRs to the game or framework all help and will
-> accelerate this game's polish. More on the why at:
-> [Recomp + AI: 5 Months Later »](https://1379.tech/recomp-ai-5-months-later/)_
+> **Experimental preview.** This recompilation is a byproduct of developing
+> [gbarecomp](https://github.com/mstan/gbarecomp): the games are the proving
+> ground, while the reusable framework is the larger goal. This is not a
+> finished commercial port, so expect rough edges and please report problems.
+> For more context, read
+> [Recomp + AI: 5 Months Later »](https://1379.tech/recomp-ai-5-months-later/).
 
-Static recompilation scaffold for Mario Kart: Super Circuit (USA) using its
-dedicated `gbarecomp-mario-kart-super-circuit` engine worktree, linked locally
-as `gbarecomp/`.
+Static recompilation of **Mario Kart: Super Circuit** for Windows, with
+optional 60 FPS and Adaptive Widescreen mods.
 
-The faithful baseline executes the real recompiled BIOS and cartridge code.
-Generated code and the user-provided ROM stay local and ignored.
+The game ROM and Nintendo GBA BIOS are **not included**. You must provide your
+own legally obtained dumps.
+
+## Status
+
+The game boots and runs through menus, cup selection, races, and results. The
+initial `v0.0.1` build is a public preview; back up important saves and expect
+gameplay or presentation edge cases that have not been discovered yet.
+
+## Quick start
+
+1. Download the Windows zip from [Releases](../../releases) and extract it.
+2. Run `MarioKartSuperCircuitRecomp.exe`.
+3. In the launcher, select your **Mario Kart: Super Circuit (USA)** ROM and
+   retail GBA BIOS.
+4. Configure display, audio, controls, and mods, then select **Play**.
+
+The launcher remembers valid files after the first setup. Enable **Skip
+launcher on boot** if you want later launches to go directly into the game.
+
+## Included mods
+
+Both enhancements are optional and disabled by default:
+
+- **60 FPS Track Rendering** updates race presentation at 60 FPS while
+  preserving the game's underlying logic and timing.
+- **Adaptive Widescreen** renders additional race content at the sides instead
+  of stretching the original 240×160 image.
+
+Open the launcher's **Mods** page to enable either feature. Because both are
+experimental, please report repeatable visual or gameplay regressions with the
+course, mode, and character used.
+
+## Features
+
+- Native Windows x64 application
+- ROM and BIOS setup through the shared
+  [recomp-ui](https://github.com/mstan/recomp-ui) launcher
+- Optional 60 FPS and Adaptive Widescreen mods
+- Keyboard and modern game-controller support
+- Windowed and fullscreen play with sharp scaling and optional affine
+  filtering
+- In-game settings menu
+- Cartridge saves and save states
+
+## Controls
+
+| GBA control | Keyboard |
+|---|---|
+| D-Pad | Arrow keys |
+| A / B | X / Z |
+| Start | Enter |
+| Select | Right Shift |
+| L / R | C / V |
+
+Use **Shift+F1-F9** to save a state and **F1-F9** to load one. Controls can be
+changed from the launcher.
+
+## Building from source
+
+Windows development requires CMake, Ninja, MSYS2 MinGW64, and SDL2:
 
 ```powershell
+git clone --recurse-submodules `
+  https://github.com/mstan/MarioKartSuperCircuitRecomp.git
+cd MarioKartSuperCircuitRecomp
+
+cmake -S gbarecomp -B gbarecomp/build -G Ninja
+cmake --build gbarecomp/build --target gba_recompile
 pwsh tools/regen.ps1
-C:\msys64\mingw64\bin\cmake.exe -S . -B build -G Ninja `
-  -DCMAKE_BUILD_TYPE=Release `
-  -DCMAKE_C_COMPILER=C:/msys64/mingw64/bin/gcc.exe `
-  -DCMAKE_CXX_COMPILER=C:/msys64/mingw64/bin/g++.exe
-C:\msys64\mingw64\bin\cmake.exe --build build --target MarioKartSuperCircuitRecomp --parallel
+cmake -S . -B build -G Ninja
+cmake --build build --target MarioKartSuperCircuitRecomp
 ```
 
-Runtime closure uses the same standard as Mega Man Zero: no interpreted or
-cache-healed PCs in a fully-static verification run, plus independent-oracle
-comparison before visible/correctness claims.
+Generation requires the supported ROM revision and a retail GBA BIOS. Their
+identities and local development paths are documented in
+[`baserom.md`](baserom.md) and [`game.toml`](game.toml). ROM-derived generated
+code, copyrighted inputs, saves, and build output remain local and are never
+included in releases.
 
-The deterministic acceptance route leaves the title screen, selects Mario GP,
-50cc, a driver and Mushroom Cup, then holds acceleration while applying bounded
-steering, hop/drift and item-button pulses through live race gameplay. Run both
-the passive attract/title soak and gameplay route with interpreter and
-self-healing fallback disabled:
+Contributors can run `pwsh tools/test-attract-gameplay.ps1` for the automated
+native acceptance routes and `pwsh tools/make_release.ps1 -Version 0.0.1` to
+build a sanitized Windows package.
 
-```powershell
-pwsh tools/test-attract-gameplay.ps1
-```
+## Legal
 
-Passing requires zero unmapped accesses, zero unhandled I/O, zero dispatch
-misses, zero interpreted instructions, and a non-empty final frame capture for
-both routes. The ROM, BIOS, generated code, saves, logs, and captures remain
-local and ignored.
+This is an unofficial, non-commercial preservation and research project. It
+is not affiliated with or endorsed by Nintendo. Mario Kart and related names,
+characters, artwork, and game data are trademarks or copyrights of their
+respective owners.
 
-## Windows release
+No copyrighted game ROM or Nintendo BIOS data is distributed by this project.
 
-Build the redistributable Windows x64 archive with:
+---
 
-```powershell
-pwsh tools/make_release.ps1 -Version 0.0.1
-```
-
-The archive contains the stripped executable, recomp-ui assets and box art,
-built-in mod catalog, MinGW/SDL runtime DLLs, and the local overlay toolchain.
-It never contains the game ROM, a retail GBA BIOS, save data, generated source,
-or developer configuration.
+Part of the **R.A.I.D. — Retro AI Development** static-recompilation
+community.
