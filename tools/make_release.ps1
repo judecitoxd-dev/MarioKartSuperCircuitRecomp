@@ -7,7 +7,7 @@ short player README. It never contains a ROM, retail GBA BIOS, save data,
 generated source, or developer configuration.
 
 Usage:
-  pwsh tools\make_release.ps1 -Version 0.0.1
+  pwsh tools\make_release.ps1 -Version 0.0.2
 #>
 param(
     [Parameter(Mandatory = $true)][string]$Version,
@@ -121,6 +121,9 @@ if ($LASTEXITCODE -ne 0) { throw "Overlay toolchain staging failed ($LASTEXITCOD
 This v$Version preview runs the USA retail game through gbarecomp with a
 recomp-ui launcher and optional enhancement mods.
 
+This experimental build is a byproduct of developing and testing gbarecomp.
+It has no affiliation with or endorsement from Nintendo.
+
 ## How to run
 
 1. Extract this entire folder and keep its DLLs, assets, mods, and
@@ -137,6 +140,8 @@ Right Shift = Select, and Tab = fast-forward. Shift+F1-F9 saves a state;
 F1-F9 loads one.
 
 The ROM and retail GBA BIOS are not included. Supply your own dumps.
+Interactive play has no implicit runtime step limit; only an explicit
+``--steps`` option applies a deterministic upper bound.
 
 Project: https://github.com/mstan/MarioKartSuperCircuitRecomp
 Engine: https://github.com/mstan/gbarecomp
