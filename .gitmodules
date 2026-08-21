@@ -6,3 +6,6 @@
 	path = gbarecomp
 	url = https://github.com/mstan/gbarecomp.git
 	branch = main
+[submodule "third_party/mksc"]
+	path = third_party/mksc
+	url = https://github.com/jellees/mksc

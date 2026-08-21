@@ -94,6 +94,28 @@ Contributors can run `pwsh tools/test-attract-gameplay.ps1` for the automated
 native acceptance routes and `pwsh tools/make_release.ps1 -Version 0.0.1` to
 build a sanitized Windows package.
 
+### Decomp symbol names (optional)
+
+The generated code and every debug surface — hang traces, dispatch-miss
+reports, the PC sampler, the TCP `symbol` query — can be named from the
+[jellees/mksc](https://github.com/jellees/mksc) decompilation, which is pinned
+as a submodule at `third_party/mksc`. The tracked files under
+[`symbols/`](symbols/README.md) are already imported, so `tools/regen.ps1`
+picks them up automatically; `-NoSymbols` regenerates without them.
+
+To re-import after the decomp advances upstream, build it under WSL with
+`tools/decomp/provision.sh` and `tools/decomp/build.sh` (root-free: no
+devkitPro or apt install needed) and run
+`gbarecomp/tools/symbol_import/import_decomp_symbols.py`. The build gates on
+the decomp reproducing this project's exact ROM SHA-1. Full procedure:
+[`gbarecomp/docs/SYMBOL_OVERLAY.md`](gbarecomp/docs/SYMBOL_OVERLAY.md).
+
+The decomp is used only as a source of facts — names, addresses, sizes, and
+the code/data split its own linker produced. None of its source, comments, or
+data enters this repository or the build; the submodule pins a URL and commit
+rather than vendoring code. Upstream ships no license file, which is why the
+boundary is drawn that tightly.
+
 ## Legal
 
 This is an unofficial, non-commercial preservation and research project. It
