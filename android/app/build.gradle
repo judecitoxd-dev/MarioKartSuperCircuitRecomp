@@ -19,6 +19,11 @@ android {
             cmake {
                 cppFlags '-std=c++20'
                 arguments '-DGBAGAME_RECOMP_UI=OFF', '-DSDL_SHARED=ON', '-DSDL_STATIC=OFF', '-DSDL_TEST=OFF'
+                // Gradle otherwise asks Ninja to build every executable/test
+                // declared by the gbarecomp subproject. Several are host-only
+                // code-generation tools and cannot run as Android binaries.
+                // main pulls SDL2 and the runtime libraries transitively.
+                targets 'main'
             }
         }
     }
