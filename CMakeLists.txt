@@ -63,6 +63,22 @@ set(MKSC_GAME_SOURCES
     src/mods/mksc_track_60fps_plugin.cpp
     ${GAME_GENERATED_SOURCES})
 
+# Generated cart code is intentionally not committed: it is produced locally
+# from the user's verified ROM. For Android CI and the first installable build,
+# keep a legal/ROM-free bootstrap available. gbarecomp already ships this empty
+# dispatch-table stub for its interpreter-only harnesses; when no generated cart
+# corpus exists, link that stub and make main.cpp select the whole-program
+# interpreter backend. A local build that has generated/*.cpp automatically
+# skips this fallback and links the native recomp corpus instead.
+set(MKSC_ANDROID_INTERPRETER_BOOTSTRAP OFF)
+if(ANDROID AND NOT GAME_GENERATED_SOURCES)
+    set(MKSC_ANDROID_INTERPRETER_BOOTSTRAP ON)
+    list(APPEND MKSC_GAME_SOURCES
+        "${GBARECOMP_ROOT}/tools/bios_smoke/dispatch_stub.cpp")
+    message(STATUS
+        "MKSC Android: generated cart corpus absent; building ROM-free interpreter bootstrap")
+endif()
+
 if(ANDROID)
     # SDLActivity loads libmain.so and invokes the exported SDL_main symbol.
     add_library(main SHARED ${MKSC_GAME_SOURCES})
@@ -98,6 +114,11 @@ target_link_libraries(${MKSC_TARGET} PRIVATE
 
 if(ANDROID)
     target_link_libraries(${MKSC_TARGET} PRIVATE SDL2::SDL2)
+endif()
+
+if(MKSC_ANDROID_INTERPRETER_BOOTSTRAP)
+    target_compile_definitions(${MKSC_TARGET} PRIVATE
+        MKSC_ANDROID_INTERPRETER_BOOTSTRAP=1)
 endif()
 
 target_compile_definitions(${MKSC_TARGET} PRIVATE
