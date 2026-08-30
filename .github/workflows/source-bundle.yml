@@ -1,0 +1,30 @@
+name: Source Bundle
+
+on:
+  push:
+    branches:
+      - android-port-v1
+    paths:
+      - '.github/workflows/source-bundle.yml'
+  workflow_dispatch:
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Create source bundle
+        run: |
+          tar --exclude-vcs --exclude='./build' --exclude='./android/app/build' -czf "$RUNNER_TEMP/mksc-source-with-submodules.tar.gz" .
+
+      - name: Upload source bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: mksc-source-with-submodules
+          path: ${{ runner.temp }}/mksc-source-with-submodules.tar.gz
+          retention-days: 1
