@@ -22,7 +22,7 @@ jobs:
         run: |
           mkdir -p gbarecomp/third_party/tomlpp
           curl -L --fail --retry 3 \
-            'https://raw.githubusercontent.com/marzer/tomlplusplus/30172438cee64926dc41fdd9c11fb3ba5b2ba9de/single_include/toml++/toml.hpp' \
+            'https://raw.githubusercontent.com/marzer/tomlplusplus/30172438cee64926dc41fdd9c11fb3ba5b2ba9de/toml.hpp' \
             -o gbarecomp/third_party/tomlpp/toml.hpp
 
       - name: Create source bundle
