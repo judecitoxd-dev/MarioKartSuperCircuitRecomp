@@ -62,7 +62,7 @@ jobs:
         shell: bash
         run: |
           chmod +x android/gradlew android/SDL/android-project/gradlew
-          ./android/gradlew -p android assembleDebug --stacktrace --no-daemon
+          ./android/gradlew assembleDebug --stacktrace --no-daemon
 
       - name: Verify APK does not contain ROM or BIOS
         shell: bash
