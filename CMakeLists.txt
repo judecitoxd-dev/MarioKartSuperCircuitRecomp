@@ -9,8 +9,16 @@ set(GBARECOMP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/gbarecomp"
     CACHE PATH "Path to this game's gbarecomp worktree")
 set(RECOMP_UI_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/recomp-ui"
     CACHE PATH "Path to the shared recomp-ui checkout")
-set(GBARECOMP_RUNTIME_UI_ROOT "${RECOMP_UI_ROOT}"
-    CACHE PATH "recomp-ui root used by the live GBA runtime adapter")
+if(ANDROID)
+    # Android v1 uses a small native Java launcher instead of ImGui. Disable
+    # gbarecomp's runtime ImGui adapter too so libmain.so does not depend on an
+    # ImGui core/backend that the disabled desktop launcher would normally own.
+    set(GBARECOMP_RUNTIME_UI_ROOT "" CACHE PATH
+        "recomp-ui root used by the live GBA runtime adapter" FORCE)
+else()
+    set(GBARECOMP_RUNTIME_UI_ROOT "${RECOMP_UI_ROOT}"
+        CACHE PATH "recomp-ui root used by the live GBA runtime adapter")
+endif()
 set(GBARECOMP_ENABLE_MODS ON CACHE BOOL
     "Enable Mario Kart: Super Circuit's mod catalog and GBA mod packages" FORCE)
 
