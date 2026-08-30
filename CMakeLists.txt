@@ -13,6 +13,24 @@ set(GBARECOMP_RUNTIME_UI_ROOT "${RECOMP_UI_ROOT}"
     CACHE PATH "recomp-ui root used by the live GBA runtime adapter")
 set(GBARECOMP_ENABLE_MODS ON CACHE BOOL
     "Enable Mario Kart: Super Circuit's mod catalog and GBA mod packages" FORCE)
+
+# Android owns SDL2 at the application layer. Build the pinned SDL2 submodule
+# first so gbarecomp can consume the same SDL2::SDL2 target as SDLActivity.
+if(ANDROID)
+    set(MKSC_ANDROID_SDL_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/android/SDL"
+        CACHE PATH "Pinned SDL2 checkout used by the Android package")
+    if(NOT EXISTS "${MKSC_ANDROID_SDL_ROOT}/CMakeLists.txt")
+        message(FATAL_ERROR
+            "Android SDL2 submodule is missing:\n"
+            "  ${MKSC_ANDROID_SDL_ROOT}\n"
+            "Run: git submodule update --init --recursive")
+    endif()
+    set(SDL_SHARED ON CACHE BOOL "Build SDL2 shared on Android" FORCE)
+    set(SDL_STATIC OFF CACHE BOOL "Do not build duplicate static SDL2" FORCE)
+    set(SDL_TEST OFF CACHE BOOL "Do not build SDL2 tests" FORCE)
+    add_subdirectory("${MKSC_ANDROID_SDL_ROOT}" sdl2_android_build EXCLUDE_FROM_ALL)
+endif()
+
 if(NOT EXISTS "${GBARECOMP_ROOT}/CMakeLists.txt")
     message(FATAL_ERROR
         "GBARECOMP_ROOT is not a gbarecomp checkout:\n"
@@ -30,12 +48,21 @@ file(GLOB GAME_GENERATED_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/generated/*.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/generated/*.cpp")
 
-add_executable(MarioKartSuperCircuitRecomp
+set(MKSC_GAME_SOURCES
     src/main.cpp
     src/mksc_extended_view.cpp
     src/mods/mksc_adaptive_view_plugin.cpp
     src/mods/mksc_track_60fps_plugin.cpp
     ${GAME_GENERATED_SOURCES})
+
+if(ANDROID)
+    # SDLActivity loads libmain.so and invokes the exported SDL_main symbol.
+    add_library(main SHARED ${MKSC_GAME_SOURCES})
+    set(MKSC_TARGET main)
+else()
+    add_executable(MarioKartSuperCircuitRecomp ${MKSC_GAME_SOURCES})
+    set(MKSC_TARGET MarioKartSuperCircuitRecomp)
+endif()
 
 # Keep every generated guest shard cheaper to compile than the runtime. The
 # dispatch table and symbol map remain ordinary small generated units.
@@ -47,13 +74,13 @@ if(GAME_RECOMPILED_SOURCES)
         COMPILE_OPTIONS "-O1;-g0")
 endif()
 
-target_include_directories(MarioKartSuperCircuitRecomp PRIVATE
+target_include_directories(${MKSC_TARGET} PRIVATE
     "${GBARECOMP_ROOT}/src/armv4t"
     "${GBARECOMP_ROOT}/src/gba"
     "${GBARECOMP_ROOT}/src/runtime"
     "${GBARECOMP_ROOT}/src/debug")
 
-target_link_libraries(MarioKartSuperCircuitRecomp PRIVATE
+target_link_libraries(${MKSC_TARGET} PRIVATE
     "-Wl,--start-group"
     gbarecomp_runtime
     gbarecomp_debug
@@ -61,14 +88,25 @@ target_link_libraries(MarioKartSuperCircuitRecomp PRIVATE
     gbarecomp_armv4t
     "-Wl,--end-group")
 
-target_compile_definitions(MarioKartSuperCircuitRecomp PRIVATE
+if(ANDROID)
+    target_link_libraries(${MKSC_TARGET} PRIVATE SDL2::SDL2)
+endif()
+
+target_compile_definitions(${MKSC_TARGET} PRIVATE
     GBARECOMP_DEFAULT_DEBUG_PORT=19872
     GBARECOMP_WINDOW_TITLE="MarioKartSuperCircuitRecomp"
     GBARECOMP_DEFAULT_GAME_CONFIG="game.toml")
 
-# Keep recomp-ui and its Dear ImGui sources isolated from the generated guest
-# shards. Only this small bridge and main.cpp know that the launcher exists.
-option(GBAGAME_RECOMP_UI "Build the recomp-ui pre-boot launcher" ON)
+# The desktop launcher is intentionally disabled in the first Android port.
+# Android has its own small asset picker Activity; the in-game runtime itself
+# still uses gbarecomp's SDL2 renderer, audio, gamepad and touch paths.
+if(ANDROID)
+    set(GBAGAME_RECOMP_UI OFF CACHE BOOL
+        "Build the recomp-ui pre-boot launcher" FORCE)
+else()
+    option(GBAGAME_RECOMP_UI "Build the recomp-ui pre-boot launcher" ON)
+endif()
+
 if(GBAGAME_RECOMP_UI)
     include(${RECOMP_UI_ROOT}/recomp_ui.cmake)
     add_library(game_launcher_ui STATIC src/game_launcher_boot.cpp)
@@ -81,29 +119,33 @@ if(GBAGAME_RECOMP_UI)
     recomp_target_launcher_ui(game_launcher_ui
         CONSOLE gba
         BOXART ${CMAKE_CURRENT_SOURCE_DIR}/recomp/launcher/boxart.tga)
-    find_package(SDL2 REQUIRED)
-    target_link_libraries(game_launcher_ui PUBLIC SDL2::SDL2)
-    if(WIN32)
-        target_link_libraries(game_launcher_ui PUBLIC opengl32)
+    if(ANDROID)
+        target_link_libraries(game_launcher_ui PUBLIC SDL2::SDL2)
+    else()
+        find_package(SDL2 REQUIRED)
+        target_link_libraries(game_launcher_ui PUBLIC SDL2::SDL2)
+        if(WIN32)
+            target_link_libraries(game_launcher_ui PUBLIC opengl32)
+        endif()
     endif()
-    target_link_libraries(MarioKartSuperCircuitRecomp PRIVATE game_launcher_ui)
+    target_link_libraries(${MKSC_TARGET} PRIVATE game_launcher_ui)
     set_property(SOURCE src/main.cpp APPEND PROPERTY
         COMPILE_DEFINITIONS GBAGAME_RECOMP_UI)
 endif()
 
-# Ship the game-owned, disabled-by-default enhancement packages beside the
-# executable so recomp-ui can expose them in the Mods tab.
+# Desktop releases stage packages beside the executable. Android packages the
+# same tree as APK assets and LauncherActivity extracts it to internal storage.
 set(MKSC_PRELOADED_MODS "${CMAKE_CURRENT_SOURCE_DIR}/mods/preloaded")
-if(EXISTS "${MKSC_PRELOADED_MODS}/packages")
-    add_custom_command(TARGET MarioKartSuperCircuitRecomp POST_BUILD
+if(NOT ANDROID AND EXISTS "${MKSC_PRELOADED_MODS}/packages")
+    add_custom_command(TARGET ${MKSC_TARGET} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${MKSC_PRELOADED_MODS}"
-            "$<TARGET_FILE_DIR:MarioKartSuperCircuitRecomp>/mods"
+            "$<TARGET_FILE_DIR:${MKSC_TARGET}>/mods"
         COMMENT "Preloading the Mario Kart: Super Circuit mod catalog")
 endif()
 
 if(MSVC)
-    target_link_options(MarioKartSuperCircuitRecomp PRIVATE /STACK:16777216)
+    target_link_options(${MKSC_TARGET} PRIVATE /STACK:16777216)
 elseif(MINGW OR WIN32)
-    target_link_options(MarioKartSuperCircuitRecomp PRIVATE -Wl,--stack,16777216)
+    target_link_options(${MKSC_TARGET} PRIVATE -Wl,--stack,16777216)
 endif()

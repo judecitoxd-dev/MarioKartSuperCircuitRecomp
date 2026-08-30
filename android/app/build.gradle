@@ -1,0 +1,51 @@
+apply plugin: 'com.android.application'
+
+def repoRoot = file('../..')
+def generatedAssetsDir = file("$buildDir/generated/mkscAssets")
+
+android {
+    namespace 'dev.judecitoxd.mkscrecomp'
+    compileSdkVersion 34
+
+    defaultConfig {
+        applicationId 'dev.judecitoxd.mkscrecomp'
+        minSdkVersion 23
+        targetSdkVersion 34
+        versionCode 1
+        versionName '0.0.1-android1'
+        ndk { abiFilters 'arm64-v8a' }
+        externalNativeBuild {
+            cmake {
+                cppFlags '-std=c++20'
+                arguments '-DGBAGAME_RECOMP_UI=OFF', '-DSDL_SHARED=ON', '-DSDL_STATIC=OFF', '-DSDL_TEST=OFF'
+            }
+        }
+    }
+
+    buildTypes {
+        debug { debuggable true }
+        release { minifyEnabled false }
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs += [file('../SDL/android-project/app/src/main/java')]
+            assets.srcDir generatedAssetsDir
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file('../../CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
+}
+
+tasks.register('syncGameAssets', Sync) {
+    into generatedAssetsDir
+    from(new File(repoRoot, 'game.toml'))
+    from(new File(repoRoot, 'mods/preloaded')) { into 'mods' }
+}
+
+tasks.named('preBuild').configure { dependsOn tasks.named('syncGameAssets') }

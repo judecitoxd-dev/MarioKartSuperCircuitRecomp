@@ -6,11 +6,18 @@
 #include "runtime.h"
 #include "mksc_extended_view.h"
 
+#if defined(__ANDROID__)
+#include <SDL_system.h>
+#include <unistd.h>
+#endif
+
 #if defined(GBAGAME_RECOMP_UI)
 #include "game_launcher_boot.h"
 #endif
 
-int main(int argc, char** argv) {
+namespace {
+
+int run_mksc(int argc, char** argv) {
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--help") == 0 ||
             std::strcmp(argv[i], "-h") == 0) {
@@ -19,6 +26,7 @@ int main(int argc, char** argv) {
             return 0;
         }
     }
+
     gbarecomp::RunOptions opts;
     opts.builtin_game_name = "Mario Kart: Super Circuit (USA)";
     opts.builtin_rom_sha1 = "9d327c030c3e2d9007990518594f70c3340ac56f";
@@ -35,8 +43,6 @@ int main(int argc, char** argv) {
     opts.launcher_expose_affine_filter = true;
     opts.launcher_default_affine_filter = true;
     opts.launcher_region = "USA";
-    // The launcher reads [rom].path and [bios].path from this file when its
-    // per-user cache is empty, so the verified local ROM is preselected.
     opts.launcher_game_config = "game.toml";
     opts.launcher_save_path = "saves/mario_kart_super_circuit_usa.sav";
 
@@ -51,3 +57,24 @@ int main(int argc, char** argv) {
     return gbarecomp::run_game(argc, argv, opts);
 #endif
 }
+
+}  // namespace
+
+#if defined(__ANDROID__)
+extern "C" int SDL_main(int argc, char** argv) {
+    // Keep every relative path in game.toml (saves/, mods/, config files)
+    // inside Android's private app storage. LauncherActivity extracts the
+    // bootstrap assets and selected ROM/BIOS into this same directory.
+    if (const char* internal = SDL_AndroidGetInternalStoragePath();
+        internal && *internal) {
+        if (chdir(internal) != 0) {
+            std::perror("MarioKartSuperCircuitRecomp: chdir internal storage");
+        }
+    }
+    return run_mksc(argc, argv);
+}
+#else
+int main(int argc, char** argv) {
+    return run_mksc(argc, argv);
+}
+#endif

@@ -30,6 +30,12 @@ recomp_seed_proposals.toml
 .vscode/
 __pycache__/
 
+# Android/Gradle local output.
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/
+
 # Decomp symbol-import INPUTS. These are the bulky, regenerable readelf and
 # link-map dumps produced by tools/decomp/build.sh from the third_party/mksc
 # submodule; the small, reviewable importer OUTPUTS (symbols/*.tsv and
