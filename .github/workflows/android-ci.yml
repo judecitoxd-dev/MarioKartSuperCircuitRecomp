@@ -61,8 +61,17 @@ jobs:
       - name: Build debug APK
         shell: bash
         run: |
+          set -o pipefail
           chmod +x android/gradlew android/SDL/android-project/gradlew
-          ./android/gradlew assembleDebug --stacktrace --no-daemon
+          ./android/gradlew assembleDebug --stacktrace --no-daemon 2>&1 | tee android-build.log
+
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MarioKartSuperCircuitRecomp-Android-build-log
+          path: android-build.log
+          if-no-files-found: warn
 
       - name: Verify APK does not contain ROM or BIOS
         shell: bash
