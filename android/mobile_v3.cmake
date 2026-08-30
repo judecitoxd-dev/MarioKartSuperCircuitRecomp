@@ -1,6 +1,7 @@
 # Android v3 presentation patch.
-# Loaded through CMAKE_PROJECT_INCLUDE and deferred until the top-level CMake
-# file has generated its Android-specific host_window translation unit.
+# Loaded through CMAKE_PROJECT_INCLUDE. CMake also includes this file for
+# subprojects that call project(), so register the deferred mutation only once
+# from the repository's top-level project.
 
 function(mksc_mobile_v3_apply)
     if(NOT ANDROID)
@@ -72,4 +73,6 @@ function(mksc_mobile_v3_apply)
     message(STATUS "MKSC Android v3: fullscreen adaptive-view + compact touch overlay applied")
 endfunction()
 
-cmake_language(DEFER CALL mksc_mobile_v3_apply)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    cmake_language(DEFER DIRECTORY "${CMAKE_SOURCE_DIR}" CALL mksc_mobile_v3_apply)
+endif()
