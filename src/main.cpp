@@ -71,6 +71,14 @@ extern "C" int SDL_main(int argc, char** argv) {
             std::perror("MarioKartSuperCircuitRecomp: chdir internal storage");
         }
     }
+
+    // gbarecomp resolves the mod catalog next to argv[0]. SDLActivity usually
+    // supplies libmain.so's absolute path here, which lives in Android's
+    // read-only native library directory. After chdir, use a basename-only
+    // argv[0] so the normal executable-relative lookup resolves to files/mods.
+    static char android_argv0[] = "MarioKartSuperCircuitRecomp";
+    if (argc > 0 && argv) argv[0] = android_argv0;
+
     return run_mksc(argc, argv);
 }
 #else
