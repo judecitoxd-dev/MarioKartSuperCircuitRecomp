@@ -18,6 +18,13 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
+      - name: Vendor pinned toml++ single header
+        run: |
+          mkdir -p gbarecomp/third_party/tomlpp
+          curl -L --fail --retry 3 \
+            'https://raw.githubusercontent.com/marzer/tomlplusplus/30172438cee64926dc41fdd9c11fb3ba5b2ba9de/toml.hpp' \
+            -o gbarecomp/third_party/tomlpp/toml.hpp
+
       - name: Create source bundle
         run: |
           tar --exclude-vcs --exclude='./build' --exclude='./android/app/build' -czf "$RUNNER_TEMP/mksc-source-with-submodules.tar.gz" .
