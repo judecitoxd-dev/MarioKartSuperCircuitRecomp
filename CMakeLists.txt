@@ -47,6 +47,177 @@ if(NOT EXISTS "${GBARECOMP_ROOT}/CMakeLists.txt")
 endif()
 
 add_subdirectory("${GBARECOMP_ROOT}" gbarecomp_build EXCLUDE_FROM_ALL)
+
+# The pinned gbarecomp Android backend is intentionally conservative: it keeps
+# very wide touch side rails and uses desktop-oriented audio buffering. Keep the
+# upstream submodule immutable and generate one Android-only translation unit
+# with small presentation/audio tweaks instead. Desktop builds still compile the
+# original host_window.cpp byte-for-byte.
+if(ANDROID)
+    set(MKSC_ANDROID_HOST_WINDOW_SOURCE
+        "${CMAKE_CURRENT_BINARY_DIR}/mksc_android_host_window.cpp")
+    file(READ "${GBARECOMP_ROOT}/src/runtime/host_window.cpp"
+        MKSC_ANDROID_HOST_WINDOW_TEXT)
+
+    # Fill much more of a phone display while preserving the exact GBA aspect
+    # ratio and nearest-neighbour integer scaling whenever possible.
+    string(REPLACE
+        "static_cast<int>((drawable_w * 0.62f) / b->base_w);"
+        "static_cast<int>((drawable_w * 0.90f) / b->base_w);"
+        MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE
+        "static_cast<int>((drawable_h * 0.90f) / b->base_h);"
+        "static_cast<int>((drawable_h * 0.97f) / b->base_h);"
+        MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+
+    # Mobile control hitboxes: larger useful regions, less dead space.
+    string(REPLACE
+        "if (x < 0.27f && y > 0.39f) {"
+        "if (x < 0.30f && y > 0.34f) {"
+        MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "const float dx = x - 0.12f;"
+                   "const float dx = x - 0.105f;"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "const float dy = y - 0.69f;"
+                   "const float dy = y - 0.72f;"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "0.028f" "0.022f"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "in_circle(0.90f, 0.62f, 0.085f)"
+                   "in_circle(0.91f, 0.61f, 0.095f)"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "in_circle(0.83f, 0.78f, 0.085f)"
+                   "in_circle(0.82f, 0.76f, 0.095f)"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "y >= 0.88f" "y >= 0.84f"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "x <= 0.22f && y <= 0.17f"
+                   "x <= 0.23f && y <= 0.18f"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "x >= 0.78f && y <= 0.17f"
+                   "x >= 0.77f && y <= 0.18f"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+
+    # Cleaner-looking mobile overlay: compact shoulders, substantial d-pad,
+    # softer opacity, and larger face buttons.
+    string(REPLACE "static_cast<int>(w * 0.12f);"
+                   "static_cast<int>(w * 0.105f);"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "static_cast<int>(h * 0.69f);"
+                   "static_cast<int>(h * 0.72f);"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "static_cast<int>(h * 0.105f)"
+                   "static_cast<int>(h * 0.125f)"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "static_cast<int>(h * 0.050f)"
+                   "static_cast<int>(h * 0.064f)"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "255, 92, 98, 148"
+                   "255, 92, 104, 132"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "83, 196, 255, 148"
+                   "72, 181, 255, 132"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "224, 234, 246, 92"
+                   "224, 234, 246, 68"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "224, 234, 246, 82"
+                   "224, 234, 246, 66"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "std::max(34, static_cast<int>(h * 0.060f))"
+                   "std::max(38, static_cast<int>(h * 0.074f))"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "static_cast<int>(w * 0.90f)"
+                   "static_cast<int>(w * 0.91f)"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "static_cast<int>(h * 0.62f)"
+                   "static_cast<int>(h * 0.61f)"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "static_cast<int>(w * 0.83f)"
+                   "static_cast<int>(w * 0.82f)"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "static_cast<int>(h * 0.78f)"
+                   "static_cast<int>(h * 0.76f)"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "static_cast<int>(w * 0.17f);"
+                   "static_cast<int>(w * 0.13f);"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "static_cast<int>(h * 0.052f)"
+                   "static_cast<int>(h * 0.044f)"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "static_cast<int>(w * 0.015f)"
+                   "static_cast<int>(w * 0.022f)"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "static_cast<int>(h * 0.055f)"
+                   "static_cast<int>(h * 0.045f)"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "static_cast<int>(w * 0.055f)"
+                   "static_cast<int>(w * 0.060f)"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "static_cast<int>(h * 0.018f)"
+                   "static_cast<int>(h * 0.024f)"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "static_cast<int>(h * 0.925f)"
+                   "static_cast<int>(h * 0.885f)"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+
+    # A slightly larger mobile audio cushion masks short scheduling spikes. It
+    # cannot compensate for sustained slow emulation, so the O3 core below is
+    # the primary fix; this just prevents tiny hitches becoming crackle.
+    string(REPLACE "want.samples  = 1024;"
+                   "want.samples  = 2048;"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "cfg.target_ms   = 60.0;"
+                   "cfg.target_ms   = 100.0;"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+    string(REPLACE "cfg.preroll_ms  = 250.0;"
+                   "cfg.preroll_ms  = 320.0;"
+                   MKSC_ANDROID_HOST_WINDOW_TEXT "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+
+    file(WRITE "${MKSC_ANDROID_HOST_WINDOW_SOURCE}"
+         "${MKSC_ANDROID_HOST_WINDOW_TEXT}")
+
+    # Replace only host_window.cpp in gbarecomp_runtime; convert the remaining
+    # relative sources to absolute paths so changing the target from the parent
+    # directory cannot change their resolution base.
+    get_target_property(MKSC_GBARECOMP_RUNTIME_SOURCES gbarecomp_runtime SOURCES)
+    get_target_property(MKSC_GBARECOMP_RUNTIME_SOURCE_DIR gbarecomp_runtime SOURCE_DIR)
+    set(MKSC_GBARECOMP_RUNTIME_PATCHED_SOURCES)
+    foreach(MKSC_RUNTIME_SOURCE IN LISTS MKSC_GBARECOMP_RUNTIME_SOURCES)
+        if(MKSC_RUNTIME_SOURCE MATCHES "(^|/)host_window\\.cpp$")
+            continue()
+        endif()
+        if(IS_ABSOLUTE "${MKSC_RUNTIME_SOURCE}")
+            list(APPEND MKSC_GBARECOMP_RUNTIME_PATCHED_SOURCES
+                "${MKSC_RUNTIME_SOURCE}")
+        else()
+            list(APPEND MKSC_GBARECOMP_RUNTIME_PATCHED_SOURCES
+                "${MKSC_GBARECOMP_RUNTIME_SOURCE_DIR}/${MKSC_RUNTIME_SOURCE}")
+        endif()
+    endforeach()
+    list(APPEND MKSC_GBARECOMP_RUNTIME_PATCHED_SOURCES
+        "${MKSC_ANDROID_HOST_WINDOW_SOURCE}")
+    set_property(TARGET gbarecomp_runtime PROPERTY SOURCES
+        ${MKSC_GBARECOMP_RUNTIME_PATCHED_SOURCES})
+
+    # The first APK has no generated corpus and therefore runs the reference
+    # interpreter for every guest instruction. A Debug-native -O0 build is far
+    # too expensive on a phone. Keep Java debuggable, but optimize the hot C++
+    # machine/runtime aggressively and strip native debug info.
+    foreach(MKSC_ANDROID_HOT_TARGET IN ITEMS
+            gbarecomp_armv4t
+            gbarecomp_gba
+            gbarecomp_heal_gate
+            gbarecomp_recompile_core
+            gbarecomp_debug
+            gbarecomp_runtime)
+        if(TARGET ${MKSC_ANDROID_HOT_TARGET})
+            target_compile_options(${MKSC_ANDROID_HOT_TARGET} PRIVATE -O3 -g0)
+            target_compile_definitions(${MKSC_ANDROID_HOT_TARGET} PRIVATE NDEBUG=1)
+        endif()
+    endforeach()
+endif()
+
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/generated/recompiled.cpp")
     message(FATAL_ERROR
         "Stale monolithic generated/recompiled.cpp found. "
@@ -96,6 +267,11 @@ list(FILTER GAME_RECOMPILED_SOURCES INCLUDE REGEX
 if(GAME_RECOMPILED_SOURCES)
     set_source_files_properties(${GAME_RECOMPILED_SOURCES} PROPERTIES
         COMPILE_OPTIONS "-O1;-g0")
+endif()
+
+if(ANDROID)
+    target_compile_options(${MKSC_TARGET} PRIVATE -O3 -g0)
+    target_compile_definitions(${MKSC_TARGET} PRIVATE NDEBUG=1)
 endif()
 
 target_include_directories(${MKSC_TARGET} PRIVATE
