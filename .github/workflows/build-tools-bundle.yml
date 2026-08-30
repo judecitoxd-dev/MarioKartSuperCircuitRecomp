@@ -1,0 +1,31 @@
+name: Build Tools Bundle
+
+on:
+  push:
+    branches:
+      - android-port-v1
+    paths:
+      - '.github/workflows/build-tools-bundle.yml'
+  workflow_dispatch:
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install build tools 34
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;34.0.0'
+          test -x "$ANDROID_HOME/build-tools/34.0.0/zipalign"
+          test -x "$ANDROID_HOME/build-tools/34.0.0/apksigner"
+
+      - name: Pack build tools
+        run: |
+          tar -C "$ANDROID_HOME/build-tools" -czf "$RUNNER_TEMP/android-build-tools-34.tar.gz" 34.0.0
+
+      - name: Upload build tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-tools-34
+          path: ${{ runner.temp }}/android-build-tools-34.tar.gz
+          retention-days: 1
