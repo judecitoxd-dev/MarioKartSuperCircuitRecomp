@@ -7,19 +7,19 @@
 
     <application
         android:allowBackup="false"
-        android:label="Mario Kart: Super Circuit Recomp"
+        android:label="Mario Kart: Super Circuit Recomp HOTPATH"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
         <activity
-            android:name=".GameActivity"
+            android:name="dev.judecitoxd.mkscrecomp.GameActivity"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/GameTheme" />
 
         <activity
-            android:name=".LauncherActivity"
+            android:name="dev.judecitoxd.mkscrecomp.LauncherActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
