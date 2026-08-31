@@ -9,3 +9,7 @@
 [submodule "third_party/mksc"]
 	path = third_party/mksc
 	url = https://github.com/jellees/mksc
+[submodule "android/SDL"]
+	path = android/SDL
+	url = https://github.com/libsdl-org/SDL.git
+	branch = release-2.32.x

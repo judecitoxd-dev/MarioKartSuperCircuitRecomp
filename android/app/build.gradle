@@ -1,0 +1,58 @@
+apply plugin: 'com.android.application'
+
+def repoRoot = file('../..')
+def generatedAssetsDir = file("$buildDir/generated/mkscAssets")
+def mobileV3Cmake = file('../mobile_v3.cmake')
+
+android {
+    namespace 'dev.judecitoxd.mkscrecomp'
+    compileSdkVersion 34
+    ndkVersion '26.3.11579264'
+
+    defaultConfig {
+        applicationId 'dev.judecitoxd.mkscrecomp.fast2'
+        minSdkVersion 23
+        targetSdkVersion 34
+        versionCode 8
+        versionName '0.0.8-traceoff'
+        ndk { abiFilters 'arm64-v8a' }
+        externalNativeBuild {
+            cmake {
+                cppFlags '-std=c++20'
+                arguments '-DGBAGAME_RECOMP_UI=OFF', '-DSDL_SHARED=ON', '-DSDL_STATIC=OFF', '-DSDL_TEST=OFF', "-DCMAKE_PROJECT_INCLUDE=${mobileV3Cmake.absolutePath}"
+                // Gradle otherwise asks Ninja to build every executable/test
+                // declared by the gbarecomp subproject. Several are host-only
+                // code-generation tools and cannot run as Android binaries.
+                // main pulls SDL2 and the runtime libraries transitively.
+                targets 'main'
+            }
+        }
+    }
+
+    buildTypes {
+        debug { debuggable true }
+        release { minifyEnabled false }
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs += [file('../SDL/android-project/app/src/main/java')]
+            assets.srcDir generatedAssetsDir
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file('../../CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
+}
+
+tasks.register('syncGameAssets', Sync) {
+    into generatedAssetsDir
+    from(new File(repoRoot, 'game.toml'))
+    from(new File(repoRoot, 'mods/preloaded')) { into 'mods' }
+}
+
+tasks.named('preBuild').configure { dependsOn tasks.named('syncGameAssets') }
